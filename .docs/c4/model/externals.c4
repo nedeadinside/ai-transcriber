@@ -1,0 +1,24 @@
+model {
+  transcriptionModel = system 'Transcription Model' {
+    technology 'Whisper (speech-to-text)'
+    description 'Converts audio into raw text'
+    style { color c4External }
+  }
+  llm = system 'LLM' {
+    technology 'Large Language Model API'
+    description 'Generates a summary from transcribed text'
+    style { color c4External }
+  }
+  diarizer = system 'Diarizer' {
+    technology 'Pyannotate / FastAPI'
+    description 'Splits audio by speaker. Optional - used only when speaker separation requested'
+    style { color c4External }
+  }
+
+  user -> transcriber 'uses'
+  transcriber -> transcriptionModel 'sends audio to'
+  transcriber -> llm 'sends text to'
+  transcriber -> diarizer 'sends audio to (optional)' {
+    style { line dashed }
+  }
+}

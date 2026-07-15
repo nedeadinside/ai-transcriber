@@ -1,0 +1,10 @@
+model {
+  user = person 'User' {
+    description 'User who wants transcribe audio or get summary'
+  }
+
+  transcriber = system 'Transcriber' {
+    technology 'FastAPI / Python'
+    description 'Transcribes audio files into text and optionally summarizes it'
+  }
+}

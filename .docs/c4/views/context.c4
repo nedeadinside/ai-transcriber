@@ -1,0 +1,7 @@
+views {
+  view context {
+    title 'System Context - Ai-Transcriber'
+    include *
+    autoLayout LeftRight
+  }
+}
