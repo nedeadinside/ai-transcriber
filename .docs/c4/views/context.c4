@@ -1,5 +1,5 @@
 views {
-  view context {
+  view index {
     title 'System Context - Ai-Transcriber'
     include *
     autoLayout LeftRight

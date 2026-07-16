@@ -1,0 +1,22 @@
+views {
+  dynamic view diarizeFlow {
+    title 'Flow - Diarize an audio file'
+
+    transcriber -> diarizer.api.routes 'POST /diarize (audio)'
+    diarizer.api.routes -> diarizer.api.audioSpool 'save(file)'
+    diarizer.api.audioSpool -> diarizer.spool 'streams to <uuid>.<ext>, rejects bad format/size/duration'
+    diarizer.api.routes -> diarizer.broker 'enqueue_job("diarize", path)'
+    transcriber <- diarizer.api.routes '202 Accepted { job_id }'
+
+    diarizer.worker.task -> diarizer.broker 'picks up job'
+    diarizer.worker.task -> diarizer.worker.pipeline 'run(path)'
+    diarizer.worker.pipeline -> diarizer.spool 'reads audio'
+    diarizer.worker.task -> diarizer.broker 'stores { segments }'
+
+    transcriber -> diarizer.api.routes 'GET /jobs/{job_id} (polled)'
+    diarizer.api.routes -> diarizer.broker 'reads job status / result'
+    transcriber <- diarizer.api.routes 'pending | started | success + segments | failure'
+
+    autoLayout LeftRight
+  }
+}

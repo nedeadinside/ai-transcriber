@@ -1,0 +1,21 @@
+views {
+  view diarizerContainers of diarizer {
+    title 'Containers - Diarizer'
+    include *
+    include transcriber
+    autoLayout LeftRight
+  }
+
+  view diarizerApiComponents of diarizer.api {
+    title 'Components - Diarizer API'
+    include *
+    include transcriber
+    autoLayout LeftRight
+  }
+
+  view diarizerWorkerComponents of diarizer.worker {
+    title 'Components - Diarization Worker'
+    include *
+    autoLayout LeftRight
+  }
+}

@@ -3,6 +3,14 @@ specification {
   color c4System   #1168BD
   color c4External #999999
 
-  element person   { style { shape person; color c4Person } }
-  element system   { style { color c4System } }
+  element person    { style { shape person; color c4Person } }
+  element system    { style { color c4System } }
+  element container { style { color c4System } }
+  element component { style { color c4System } }
+  element database  { style { shape cylinder; color c4System } }
+  element queue     { style { shape queue;    color c4System } }
+
+  relationship async { line dotted; head vee }
+
+  tag external
 }

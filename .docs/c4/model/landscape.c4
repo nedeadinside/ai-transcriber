@@ -7,4 +7,9 @@ model {
     technology 'FastAPI / Python'
     description 'Transcribes audio files into text and optionally summarizes it'
   }
+
+  diarizer = system 'Diarizer' {
+    technology 'Pyannote / FastAPI'
+    description 'Speaker diarization service - splits audio by speaker'
+  }
 }

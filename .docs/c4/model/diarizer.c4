@@ -1,0 +1,49 @@
+model {
+  extend diarizer {
+    api = container 'Diarizer API' {
+      technology 'FastAPI / Uvicorn / Python 3.12'
+      description 'Accepts audio uploads, enqueues jobs, serves job status and results'
+
+      routes = component 'HTTP Routes' {
+        technology 'FastAPI APIRouter'
+        description 'Exposes POST /diarize, GET /jobs/{job_id} and GET /health; maps ARQ job state to pending/started/success/failure'
+      }
+      audioSpool = component 'Audio Spool' {
+        technology 'Python / torchaudio'
+        description 'Validates extension, size and duration, streams the upload to the spool volume under a uuid name'
+      }
+
+      routes -> audioSpool 'saves upload via' 'in-process call'
+    }
+
+    worker = container 'Diarization Worker' {
+      technology 'ARQ / pyannote.audio / PyTorch'
+      description 'Consumes jobs and runs pyannote speaker diarization on CPU or GPU'
+
+      task = component 'Diarize Task' {
+        technology 'ARQ worker'
+        description 'Loads the pipeline once on startup, runs one job at a time, deletes the spooled file when done'
+      }
+      pipeline = component 'Diarization Pipeline' {
+        technology 'pyannote.audio Pipeline / PyTorch'
+        description 'Runs the speaker-diarization checkpoint on the configured device and flattens the annotation into segments'
+      }
+
+      task -> pipeline 'runs diarization via' 'in-process call'
+    }
+
+    broker = queue 'Job Broker' {
+      technology 'Redis 7'
+      description 'ARQ task queue and result backend'
+    }
+    spool = database 'Audio Spool Volume' {
+      technology 'Docker volume'
+      description 'Shared scratch storage for uploaded audio between API and worker'
+    }
+
+    routes -> broker 'enqueues job / reads result' 'RESP over TCP'
+    audioSpool -> spool 'writes audio file' 'file I/O'
+    task -[async]-> broker 'consumes job / stores result' 'RESP over TCP'
+    task -> spool 'reads audio / deletes after job' 'file I/O'
+  }
+}

@@ -1,24 +1,29 @@
 model {
   transcriptionModel = system 'Transcription Model' {
+    #external
     technology 'Whisper (speech-to-text)'
     description 'Converts audio into raw text'
     style { color c4External }
   }
   llm = system 'LLM' {
+    #external
     technology 'Large Language Model API'
     description 'Generates a summary from transcribed text'
     style { color c4External }
   }
-  diarizer = system 'Diarizer' {
-    technology 'Pyannotate / FastAPI'
-    description 'Splits audio by speaker. Optional - used only when speaker separation requested'
+  huggingFace = system 'Hugging Face Hub' {
+    #external
+    technology 'HTTPS'
+    description 'Hosts the pyannote speaker-diarization checkpoint'
     style { color c4External }
   }
 
   user -> transcriber 'uses'
   transcriber -> transcriptionModel 'sends audio to'
   transcriber -> llm 'sends text to'
-  transcriber -> diarizer 'sends audio to (optional)' {
+  transcriber -> diarizer.api 'sends audio to (optional)' 'multipart/form-data over HTTP' {
+    navigateTo diarizeFlow
     style { line dashed }
   }
+  diarizer.worker.pipeline -> huggingFace 'downloads checkpoint on startup (cached in volume)' 'HTTPS'
 }
