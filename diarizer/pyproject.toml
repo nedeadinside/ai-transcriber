@@ -1,0 +1,46 @@
+[project]
+name = "diarizer"
+version = "0.1.0"
+description = "Speaker diarization via pyannote"
+authors = [{ name = "nedeadinside", email = "aquvva67@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "pyannote.audio>=3.1,<4.0",
+    "huggingface-hub<0.26",
+    "fastapi>=0.115,<0.116",
+    "uvicorn[standard]>=0.32,<0.33",
+    "arq>=0.26,<0.27",
+    "pydantic>=2.9,<3.0",
+    "pydantic-settings[yaml]>=2.6,<3.0",
+    "python-multipart>=0.0.12",
+]
+
+[project.optional-dependencies]
+cpu = ["torch==2.5.1", "torchaudio==2.5.1"]
+gpu = ["torch==2.5.1", "torchaudio==2.5.1"]
+
+[tool.uv]
+package = false
+conflicts = [[{ extra = "cpu" }, { extra = "gpu" }]]
+
+# explicit = true keeps everything else off the pytorch servers.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-gpu"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-gpu", extra = "gpu" },
+]
+torchaudio = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-gpu", extra = "gpu" },
+]

@@ -1,0 +1,60 @@
+x-worker: &worker
+  command: arq src.worker.tasks.WorkerSettings
+  volumes:
+    - ./diarizer.yaml:/app/config.yaml:ro
+    - diarizer-spool:/data/spool
+    - diarizer-models:/root/.cache
+  environment:
+    - DIARIZER_MODEL__AUTH_TOKEN=${HF_TOKEN}
+  depends_on:
+    - diarizer-redis
+
+services:
+  diarizer-redis:
+    image: redis:7-alpine
+    volumes:
+      - diarizer-redis:/data
+
+  diarizer-api:
+    build: ./diarizer
+    command: uvicorn src.api.app:app --host 0.0.0.0 --port ${DIARIZER_PORT:-8001}
+    ports:
+      - "${DIARIZER_PORT:-8001}:${DIARIZER_PORT:-8001}"
+    volumes:
+      - ./diarizer.yaml:/app/config.yaml:ro
+      - diarizer-spool:/data/spool
+    environment:
+      - DIARIZER_MODEL__AUTH_TOKEN=${HF_TOKEN}
+    depends_on:
+      - diarizer-redis
+
+  diarizer-worker:
+    <<: *worker
+    profiles: ["cpu"]
+    build:
+      context: ./diarizer
+      args:
+        TORCH_EXTRA: cpu
+
+  diarizer-worker-gpu:
+    <<: *worker
+    profiles: ["gpu"]
+    build:
+      context: ./diarizer
+      args:
+        TORCH_EXTRA: gpu
+    environment:
+      - DIARIZER_MODEL__AUTH_TOKEN=${HF_TOKEN}
+      - DIARIZER_INFERENCE__DEVICE=cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: ["gpu"]
+
+volumes:
+  diarizer-spool:
+  diarizer-redis:
+  diarizer-models:

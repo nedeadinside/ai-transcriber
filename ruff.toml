@@ -1,0 +1,72 @@
+target-version = "py312"
+line-length = 100
+src = ["diarizer/src", "transcriber/src"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[lint]
+select = [
+    "E", "W",
+    "F",
+    "I",
+    "N",
+    "D",
+    "UP",
+    "B",
+    "A",
+    "C4",
+    "SIM",
+    "RET",
+    "ARG",
+    "PTH",
+    "PL",
+    "RUF",
+    "ASYNC",
+    "FAST",
+    "S",
+    "DTZ",
+    "T20",
+    "ERA",
+    "TRY",
+    "PERF",
+    "LOG", "G",
+    "TID",
+    "TC",
+    "ISC",
+    "PIE",
+    "FBT",
+]
+
+ignore = [
+    "E111", "E114", "E117", "W191", "ISC001",
+    "E501",
+    "D100",
+    "D200",
+    "D206", "D300",
+    "TRY003",
+    "PLR0913",
+    "PLR2004",
+    "FBT001", "FBT002",
+    "S104",
+]
+
+unfixable = ["ERA001"]
+
+[lint.per-file-ignores]
+"**/__init__.py" = ["F401", "D104"]
+"**/tests/**" = ["S101", "ARG", "PLR2004", "S106", "D"]
+
+[lint.isort]
+combine-as-imports = true
+
+[lint.pydocstyle]
+convention = "pep257"
+
+[lint.pylint]
+max-args = 8
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
