@@ -25,27 +25,45 @@ def _overlap(start: float, end: float, other_start: float, other_end: float) -> 
     return max(0.0, min(end, other_end) - max(start, other_start))
 
 
-def _speaker_at(start: float, end: float, speaker_segments: list["SpeakerSegment"]) -> str | None:
+def _speaker_at(
+    start: float,
+    end: float,
+    speaker_segments: list["SpeakerSegment"],
+    cursor: int,
+) -> tuple[str | None, int]:
     """
-    Return the speaker whose segment overlaps the interval the most.
+    Return the speaker whose segment overlaps the interval the most, plus the advanced cursor.
+
+    Two-pointer scan over sorted, non-overlapping segments (exclusive_speaker_diarization).
+    Callers must query in non-decreasing ``start`` order and thread the returned cursor back
+    in: once a segment ends before the current start it cannot match any later query, so the
+    cursor only moves forward and the whole pass is O(M + N) instead of O(M * N).
 
     :param start: Start of the interval.
     :param end: End of the interval.
-    :param speaker_segments: Diarization segments to match against.
-    :return: Speaker label, or None when nothing overlaps.
+    :param speaker_segments: Diarization segments, sorted by start and non-overlapping.
+    :param cursor: Index to start scanning from, from a previous call.
+    :return: Best-matching speaker label (or None), and the new cursor.
     """
+    while cursor < len(speaker_segments) and speaker_segments[cursor].end < start:
+        cursor += 1
+
     best: str | None = None
     best_overlap = 0.0
-    for seg in speaker_segments:
+    j = cursor
+    while j < len(speaker_segments) and speaker_segments[j].start < end:
+        seg = speaker_segments[j]
         overlap = _overlap(start, end, seg.start, seg.end)
         if overlap > best_overlap:
             best_overlap = overlap
             best = seg.speaker
-    if best is None and end <= start:
-        for seg in speaker_segments:
-            if seg.start <= start <= seg.end:
-                return seg.speaker
-    return best
+        j += 1
+
+    if best is None and end <= start and cursor < len(speaker_segments):
+        seg = speaker_segments[cursor]
+        if seg.start <= start <= seg.end:
+            best = seg.speaker
+    return best, cursor
 
 
 def attach_speakers(
@@ -69,6 +87,7 @@ def attach_speakers(
             for seg in segments
         ]
     out: list[Segment] = []
+    cursor = 0
     for seg in segments:
         if not seg.words:
             logger.warning(
@@ -77,18 +96,19 @@ def attach_speakers(
                 seg.start,
                 seg.end,
             )
+            speaker, cursor = _speaker_at(seg.start, seg.end, speaker_segments, cursor)
             out.append(
                 Segment(
                     start=round(seg.start, _TIMESTAMP_NDIGITS),
                     end=round(seg.end, _TIMESTAMP_NDIGITS),
                     text=seg.text.strip(),
-                    speaker=_speaker_at(seg.start, seg.end, speaker_segments),
+                    speaker=speaker,
                 )
             )
             continue
 
         for word in seg.words:
-            speaker = _speaker_at(word.start, word.end, speaker_segments)
+            speaker, cursor = _speaker_at(word.start, word.end, speaker_segments, cursor)
             start = round(word.start, _TIMESTAMP_NDIGITS)
             end = round(word.end, _TIMESTAMP_NDIGITS)
             if out and out[-1].speaker == speaker and out[-1].end <= start:

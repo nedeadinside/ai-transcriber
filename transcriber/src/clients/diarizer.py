@@ -51,13 +51,13 @@ class DiarizerClient:
         :return: Identifier of the queued job.
         """
         file = Path(path)
-        content = await asyncio.to_thread(file.read_bytes)
         try:
-            response = await self.client.post(
-                f"{self.cfg.diarizer.url}/v1/diarize",
-                files={"file": (file.name, content)},
-                timeout=self.cfg.diarizer.timeout_sec,
-            )
+            with file.open("rb") as f:  # noqa: ASYNC230
+                response = await self.client.post(
+                    f"{self.cfg.diarizer.url}/v1/diarize",
+                    files={"file": (file.name, f)},
+                    timeout=self.cfg.diarizer.timeout_sec,
+                )
             response.raise_for_status()
             return response.json()["job_id"]
         except httpx.HTTPError as e:
@@ -97,7 +97,8 @@ class DiarizerClient:
                     raise DiarizerError(f"diarizer job {job_id} was cancelled")
                 await asyncio.sleep(self.cfg.diarizer.poll_interval_sec)
         except asyncio.CancelledError:
-            await self._cancel(job_id)
+            with contextlib.suppress(asyncio.CancelledError):
+                await asyncio.shield(self._cancel(job_id))
             raise
         raise DiarizerError(f"diarizer job {job_id} timed out")
 

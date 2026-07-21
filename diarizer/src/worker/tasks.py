@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, ClassVar, TypedDict
@@ -43,10 +44,10 @@ async def diarize(
     :return: Dictionary containing the list of segments.
     """
     try:
-        segments = ctx["diarizer"].run(path)
+        segments = await asyncio.to_thread(ctx["diarizer"].run, path)
         return {"segments": segments}
     finally:
-        Path(path).unlink(missing_ok=True)  # noqa: ASYNC240
+        await asyncio.to_thread(Path(path).unlink, missing_ok=True)
 
 
 class WorkerSettings:

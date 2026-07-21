@@ -116,7 +116,7 @@ async def transcribe(
         await notify(ctx, webhooks, body)
         return result
     finally:
-        Path(path).unlink(missing_ok=True)  # noqa: ASYNC240
+        await asyncio.to_thread(Path(path).unlink, missing_ok=True)
 
 
 class WorkerSettings:

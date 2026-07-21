@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -82,14 +81,14 @@ class WhisperClient:
             params["language"] = self.cfg.whisper.language
 
         file = Path(path)
-        content = await asyncio.to_thread(file.read_bytes)
         try:
-            response = await self.client.post(
-                f"{self.cfg.whisper.url}/asr",
-                params=params,
-                files={"audio_file": (file.name, content)},
-                timeout=self.cfg.whisper.timeout_sec,
-            )
+            with file.open("rb") as f:  # noqa: ASYNC230
+                response = await self.client.post(
+                    f"{self.cfg.whisper.url}/asr",
+                    params=params,
+                    files={"audio_file": (file.name, f)},
+                    timeout=self.cfg.whisper.timeout_sec,
+                )
             response.raise_for_status()
         except httpx.HTTPError as e:
             raise WhisperError(f"asr request failed: {e}") from e
