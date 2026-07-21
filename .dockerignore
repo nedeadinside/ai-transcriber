@@ -1,0 +1,10 @@
+*
+!pyproject.toml
+!uv.lock
+!.python-version
+!core/pyproject.toml
+!core/src
+!diarizer/pyproject.toml
+!diarizer/src
+!transcriber/pyproject.toml
+!transcriber/src

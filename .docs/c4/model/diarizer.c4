@@ -2,18 +2,23 @@ model {
   extend diarizer {
     api = container 'Diarizer API' {
       technology 'FastAPI / Uvicorn / Python 3.12'
-      description 'Accepts audio uploads, enqueues jobs, serves job status and results'
+      description 'Accepts audio uploads, enqueues jobs, serves job status, result and cancellation'
 
       routes = component 'HTTP Routes' {
         technology 'FastAPI APIRouter'
-        description 'Exposes POST /diarize, GET /jobs/{job_id} and GET /health; maps ARQ job state to pending/started/success/failure'
+        description 'Exposes POST /v1/diarize, GET /v1/jobs/{job_id} and POST /v1/jobs/{job_id}/cancel; GET /health comes from the shared core app'
+      }
+      jobsApi = component 'Job API' {
+        technology 'core.api.jobs (shared library)'
+        description 'Maps ARQ job state onto pending/started/success/failure/cancelled, validates the result and requests an abort'
       }
       audioSpool = component 'Audio Spool' {
-        technology 'Python / torchaudio'
+        technology 'core.audio.io (shared library) / PyAV'
         description 'Validates extension, size and duration, streams the upload to the spool volume under a uuid name'
       }
 
       routes -> audioSpool 'saves upload via' 'in-process call'
+      routes -> jobsApi 'reads status / requests abort via' 'in-process call'
     }
 
     worker = container 'Diarization Worker' {
@@ -34,14 +39,15 @@ model {
 
     broker = queue 'Job Broker' {
       technology 'Redis 7'
-      description 'ARQ task queue and result backend'
+      description 'ARQ task queue and result backend, private to the diarizer'
     }
     spool = database 'Audio Spool Volume' {
       technology 'Docker volume'
       description 'Shared scratch storage for uploaded audio between API and worker'
     }
 
-    routes -> broker 'enqueues job / reads result' 'RESP over TCP'
+    routes -> broker 'enqueues job' 'RESP over TCP'
+    jobsApi -> broker 'reads job status / result, marks job aborted' 'RESP over TCP'
     audioSpool -> spool 'writes audio file' 'file I/O'
     task -[async]-> broker 'consumes job / stores result' 'RESP over TCP'
     task -> spool 'reads audio / deletes after job' 'file I/O'

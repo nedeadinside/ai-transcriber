@@ -5,7 +5,7 @@ model {
 
   transcriber = system 'Transcriber' {
     technology 'FastAPI / Python'
-    description 'Transcribes audio files into text and optionally summarizes it'
+    description 'Turns an audio file into the artifacts the caller asks for: a transcript, speaker-labelled segments or a summary'
   }
 
   diarizer = system 'Diarizer' {

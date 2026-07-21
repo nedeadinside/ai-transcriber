@@ -1,0 +1,28 @@
+views {
+  view transcriberContainers of transcriber {
+    title 'Containers - Transcriber'
+    include *
+    include user
+    include transcriptionModel
+    include llm
+    include webhookReceiver
+    include diarizer.api
+    autoLayout LeftRight
+  }
+
+  view transcriberApiComponents of transcriber.api {
+    title 'Components - Transcriber API'
+    include *
+    autoLayout LeftRight
+  }
+
+  view transcriberWorkerComponents of transcriber.worker {
+    title 'Components - Transcription Worker'
+    include *
+    include transcriptionModel
+    include llm
+    include webhookReceiver
+    include diarizer.api
+    autoLayout LeftRight
+  }
+}

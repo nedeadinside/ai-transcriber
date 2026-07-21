@@ -2,7 +2,7 @@ views {
   dynamic view diarizeFlow {
     title 'Flow - Diarize an audio file'
 
-    transcriber -> diarizer.api.routes 'POST /diarize (audio)'
+    transcriber -> diarizer.api.routes 'POST /v1/diarize (audio)'
     diarizer.api.routes -> diarizer.api.audioSpool 'save(file)'
     diarizer.api.audioSpool -> diarizer.spool 'streams to <uuid>.<ext>, rejects bad format/size/duration'
     diarizer.api.routes -> diarizer.broker 'enqueue_job("diarize", path)'
@@ -13,9 +13,71 @@ views {
     diarizer.worker.pipeline -> diarizer.spool 'reads audio'
     diarizer.worker.task -> diarizer.broker 'stores { segments }'
 
-    transcriber -> diarizer.api.routes 'GET /jobs/{job_id} (polled)'
-    diarizer.api.routes -> diarizer.broker 'reads job status / result'
-    transcriber <- diarizer.api.routes 'pending | started | success + segments | failure'
+    transcriber -> diarizer.api.routes 'GET /v1/jobs/{job_id} (polled)'
+    diarizer.api.routes -> diarizer.api.jobsApi 'get_status(job_id)'
+    diarizer.api.jobsApi -> diarizer.broker 'reads job status / result'
+    transcriber <- diarizer.api.routes 'pending | started | success + segments | failure | cancelled'
+
+    autoLayout LeftRight
+  }
+
+  dynamic view cancelFlow {
+    title 'Flow - Cancel a job'
+
+    user -> transcriber.api.routes 'POST /v1/jobs/{job_id}/cancel'
+    transcriber.api.routes -> transcriber.api.jobsApi 'request_cancel(job_id)'
+    transcriber.api.jobsApi -> transcriber.broker 'marks the job aborted'
+    user <- transcriber.api.routes '202 Accepted + state as of now; the abort is picked up later'
+
+    transcriber.broker -> transcriber.worker.task 'aborts the job at its next await'
+    transcriber.worker.task -> transcriber.worker.pipeline 'unwinds'
+    transcriber.worker.pipeline -> transcriber.worker.diarizerClient 'unwinds'
+    transcriber.worker.diarizerClient -> diarizer.api 'POST /v1/jobs/{id}/cancel, so the diarizer is freed too'
+    transcriber.worker.task -> transcriber.worker.notifier 'reports cancelled'
+    transcriber.worker.task -> transcriber.spool 'deletes the spooled file'
+
+    user -> transcriber.api.routes 'GET /v1/jobs/{job_id} (polled until terminal)'
+
+    autoLayout LeftRight
+  }
+
+  dynamic view transcribeFlow {
+    title 'Flow - Transcribe an audio file'
+
+    user -> transcriber.api.routes 'POST /v1/transcribe (audio, raw/diarized/summary, webhooks)'
+    transcriber.api.routes -> transcriber.api.audioSpool 'save(file), after rejecting a request that asks for no artifact'
+    transcriber.api.audioSpool -> transcriber.spool 'streams to <uuid>.<ext>, rejects bad format/size/duration'
+    transcriber.api.routes -> transcriber.broker 'enqueue_job("transcribe", path, artifacts, webhooks)'
+    user <- transcriber.api.routes '202 Accepted { job_id }'
+
+    transcriber.worker.task -> transcriber.broker 'picks up job'
+    transcriber.worker.task -> transcriber.spool 'reads audio'
+    transcriber.worker.task -> transcriber.worker.pipeline 'run(path, artifacts)'
+
+    transcriber.worker.pipeline -> transcriber.worker.whisperClient 'run(path)'
+    transcriber.worker.whisperClient -> transcriptionModel 'POST /asr?output=json&word_timestamps=true'
+    transcriber.worker.whisperClient <- transcriptionModel '{ segments + words }'
+
+    transcriber.worker.pipeline -> transcriber.worker.diarizerClient 'run(path) when diarized is asked'
+    transcriber.worker.diarizerClient -> diarizer.api 'POST /v1/diarize, then polls GET /v1/jobs/{id}'
+    transcriber.worker.diarizerClient <- diarizer.api 'success + speaker segments'
+
+    transcriber.worker.pipeline -> transcriber.worker.merge 'attach_speakers(asr, speakers)'
+    transcriber.worker.merge -> transcriber.worker.merge 'assigns each word to its speaker, regroups, splitting at speaker turns'
+
+    transcriber.worker.pipeline -> transcriber.worker.llmTasks 'summarize when summary is asked (over the diarized labels when diarized, else the raw transcript)'
+    transcriber.worker.llmTasks -> llm 'renders the prompts.yaml template and calls to summarize'
+    transcriber.worker.llmTasks <- llm 'summary'
+
+    transcriber.worker.task -> transcriber.broker 'stores { raw, diarized, summary }, unrequested ones left null'
+    transcriber.worker.task -> transcriber.worker.notifier 'reports how the job ended'
+    transcriber.worker.notifier -> webhookReceiver 'POST { job_id, status, result }'
+    transcriber.worker.task -> transcriber.spool 'deletes the spooled file'
+
+    user -> transcriber.api.routes 'GET /v1/jobs/{job_id} (polled, unless a webhook was given)'
+    transcriber.api.routes -> transcriber.api.jobsApi 'get_status(job_id)'
+    transcriber.api.jobsApi -> transcriber.broker 'reads job status / result'
+    user <- transcriber.api.routes 'pending | started | success + result | failure | cancelled'
 
     autoLayout LeftRight
   }

@@ -1,0 +1,50 @@
+diarizer:
+  queue:
+    job_timeout: 3600
+    concurrency: 1
+
+  model:
+    checkpoint: pyannote/speaker-diarization-community-1
+
+  inference:
+    device: cpu
+
+  audio:
+    allowed_formats: [wav, mp3, m4a, flac, ogg]
+    max_duration_sec: 7200
+    max_upload_mb: 200
+
+  logging:
+    level: INFO
+
+transcriber:
+  queue:
+    job_timeout: 3600
+    concurrency: 1
+
+  whisper:
+    language: null
+    vad_filter: true
+    timeout_sec: 3600
+
+  diarizer:
+    poll_interval_sec: 2
+    timeout_sec: 3600
+
+  llm:
+    provider: openai # openai | ollama
+    model: gpt-oss:120b
+    prompts_file: /app/prompts.yaml
+    temperature: 0.3
+    params:
+      base_url: https://ollama.com/v1
+      timeout: 60
+      max_retries: 2
+
+  audio:
+    allowed_formats: [wav, mp3, m4a, flac, ogg]
+    max_duration_sec: 7200
+    max_upload_mb: 200
+
+  logging:
+    level: INFO

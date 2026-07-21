@@ -1,0 +1,80 @@
+model {
+  extend transcriber {
+    api = container 'Transcriber API' {
+      technology 'FastAPI / Uvicorn / Python 3.12'
+      description 'Accepts audio uploads, enqueues jobs, serves job status, result and cancellation'
+
+      routes = component 'HTTP Routes' {
+        technology 'FastAPI APIRouter'
+        description 'Exposes POST /v1/transcribe, GET /v1/jobs/{job_id} and POST /v1/jobs/{job_id}/cancel; rejects a request that asks for no artifact; GET /health comes from the shared core app'
+      }
+      jobsApi = component 'Job API' {
+        technology 'core.api.jobs (shared library)'
+        description 'Maps ARQ job state onto pending/started/success/failure/cancelled, validates the result and requests an abort'
+      }
+      audioSpool = component 'Audio Spool' {
+        technology 'core.audio.io (shared library) / PyAV'
+        description 'Validates extension, size and duration, streams the upload to the spool volume under a uuid name'
+      }
+
+      routes -> audioSpool 'saves upload via' 'in-process call'
+      routes -> jobsApi 'reads status / requests abort via' 'in-process call'
+    }
+
+    worker = container 'Transcription Worker' {
+      technology 'ARQ / httpx / Python 3.12'
+      description 'Consumes jobs and orchestrates the transcribe, diarize and LLM steps; carries no ML runtime of its own'
+
+      task = component 'Transcribe Task' {
+        technology 'ARQ worker'
+        description 'Runs one job at a time, hands the audio to the pipeline, reports how the job ended and deletes the spooled file when done'
+      }
+      pipeline = component 'Transcription Pipeline' {
+        technology 'Python'
+        description 'Runs whisper always, the diarizer only when diarized is asked (concurrently), and the summary only when asked; leaves each unrequested artifact null in the result'
+      }
+      whisperClient = component 'Whisper Client' {
+        technology 'httpx / pydantic'
+        description 'Posts the audio to the ASR webservice and validates the json body into segments with word timestamps'
+      }
+      diarizerClient = component 'Diarizer Client' {
+        technology 'httpx'
+        description 'Posts the audio to the Diarizer API, polls the job until a terminal state, and aborts it if this job is cancelled'
+      }
+      merge = component 'Segment Merger' {
+        technology 'Python'
+        description 'Assigns each word to the speaker it overlaps most and regroups them, so a segment spanning a speaker change is split'
+      }
+      llmTasks = component 'LLM Tasks' {
+        technology 'langchain / BaseChatModel'
+        description 'Renders the prompts.yaml template and calls the LLM to summarize the transcript'
+      }
+      notifier = component 'Webhook Notifier' {
+        technology 'httpx'
+        description 'POSTs the finished job to each caller-supplied url once, best-effort; a delivery failure is logged, never raised'
+      }
+
+      task -> pipeline 'produces the requested artifacts via' 'in-process call'
+      pipeline -> whisperClient 'transcribes via' 'in-process call'
+      pipeline -> diarizerClient 'diarizes via (when diarized is asked)' 'in-process call'
+      pipeline -> merge 'attaches speakers via' 'in-process call'
+      pipeline -> llmTasks 'summarizes via (when summary is asked)' 'in-process call'
+      task -> notifier 'reports the finished job via' 'in-process call'
+    }
+
+    broker = queue 'Job Broker' {
+      technology 'Redis 7'
+      description 'ARQ task queue and result backend, private to the transcriber'
+    }
+    spool = database 'Audio Spool Volume' {
+      technology 'Docker volume'
+      description 'Shared scratch storage for uploaded audio between API and worker'
+    }
+
+    routes -> broker 'enqueues job' 'RESP over TCP'
+    jobsApi -> broker 'reads job status / result, marks job aborted' 'RESP over TCP'
+    audioSpool -> spool 'writes audio file' 'file I/O'
+    task -[async]-> broker 'consumes job / stores result' 'RESP over TCP'
+    task -> spool 'reads audio / deletes after job' 'file I/O'
+  }
+}

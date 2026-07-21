@@ -1,29 +1,37 @@
 model {
   transcriptionModel = system 'Transcription Model' {
     #external
-    technology 'Whisper (speech-to-text)'
-    description 'Converts audio into raw text'
+    technology 'Whisper ASR Webservice / faster-whisper'
+    description 'Transcribes audio into text and segments with word timestamps over POST /asr'
     style { color c4External }
   }
   llm = system 'LLM' {
     #external
-    technology 'Large Language Model API'
-    description 'Generates a summary from transcribed text'
+    technology 'OpenAI-compatible or Ollama API'
+    description 'Generates a summary of the transcript; the provider is config-selected and reached through langchain'
     style { color c4External }
   }
   huggingFace = system 'Hugging Face Hub' {
     #external
     technology 'HTTPS'
-    description 'Hosts the pyannote speaker-diarization checkpoint'
+    description 'Hosts the pyannote speaker-diarization and whisper checkpoints'
+    style { color c4External }
+  }
+  webhookReceiver = system 'Webhook Receiver' {
+    #external
+    technology 'HTTP endpoint'
+    description 'Caller-supplied url that is told how a job ended, so the caller need not poll'
     style { color c4External }
   }
 
   user -> transcriber 'uses'
-  transcriber -> transcriptionModel 'sends audio to'
-  transcriber -> llm 'sends text to'
-  transcriber -> diarizer.api 'sends audio to (optional)' 'multipart/form-data over HTTP' {
+  transcriber.worker.whisperClient -> transcriptionModel 'POST /asr?task=transcribe&output=json&word_timestamps=true' 'multipart/form-data over HTTP'
+  transcriber.worker.llmTasks -> llm 'one call to summarize the transcript' 'via langchain BaseChatModel'
+  transcriber.worker.notifier -> webhookReceiver 'POST the finished job (best-effort, once per url)' 'application/json over HTTP'
+  transcriber.worker.diarizerClient -> diarizer.api 'sends audio to (optional)' 'multipart/form-data over HTTP' {
     navigateTo diarizeFlow
     style { line dashed }
   }
   diarizer.worker.pipeline -> huggingFace 'downloads checkpoint on startup (cached in volume)' 'HTTPS'
+  transcriptionModel -> huggingFace 'downloads whisper model on first run (cached in volume)' 'HTTPS'
 }

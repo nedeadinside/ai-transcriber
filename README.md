@@ -1,5 +1,34 @@
 # Ai-Transcriber
 
+Transcribe audio into a raw transcript, a speaker-diarized transcript, and an LLM summary.
+The **transcriber** service orchestrates Whisper, an internal diarizer, and an LLM. It is
+the only service exposed to the outside.
+
+## Run
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+`COMPOSE_PROFILES=cpu` (default) or `gpu` in `.env` picks the worker/Whisper variant.
+
+Transcriber API - `http://localhost:8000` (interactive docs at `/docs`).
+
+## API
+
+Submit, poll, cancel.
+
+- `POST /v1/transcribe` - form: `file`, and any of `raw`, `diarized`, `summary` (at least one), optional `webhooks[]`
+- `GET  /v1/jobs/{id}` - status and result
+- `POST /v1/jobs/{id}/cancel`
+
+## Config
+
+- `config.yaml` - runtime settings (models, limits, LLM provider, logging)
+- `prompts.yaml` - summary prompts
+- `.env` - ports, tokens, images, profile
+
 <details>
 <summary><h2>Architecture</h2></summary>
 
@@ -24,5 +53,23 @@ The API accepts an upload and returns. Worker consumes the job out of band. Redi
 ### Flow - Diarize an audio file
 
 ![Flow - Diarize an audio file](.assets/diarizeFlow.png)
+
+### Containers - Transcriber
+
+![Containers - Transcriber](.assets/transcriberContainers.png)
+
+### Components - Transcriber API
+
+![Components - Transcriber API](.assets/transcriberApiComponents.png)
+
+### Components - Transcription Worker
+
+![Components - Transcription Worker](.assets/transcriberWorkerComponents.png)
+
+### Flow - Transcribe an audio file
+![Flow - Transcribe an audio file](.assets/transcribeFlow.png)
+
+### Flow - Cancel a job
+![Flow - Cancel a job](.assets/cancelFlow.png)
 
 </details>

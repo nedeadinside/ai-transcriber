@@ -1,60 +1,146 @@
-x-worker: &worker
-  command: arq src.worker.tasks.WorkerSettings
+x-diarizer-build: &diarizer-build
+  context: .
+  dockerfile: diarizer/Dockerfile
+
+x-diarizer-worker: &diarizer-worker
+  command: arq worker.tasks.WorkerSettings
   volumes:
-    - ./diarizer.yaml:/app/config.yaml:ro
-    - diarizer-spool:/data/spool
-    - diarizer-models:/root/.cache
+    - ./config.yaml:/app/config.yaml:ro
+    - diarizer-spool:${SPOOL_DIR:?SPOOL_DIR must be set}
+    - diarizer-models:${HF_CACHE_DIR:?HF_CACHE_DIR must be set}
   environment:
-    - DIARIZER_MODEL__AUTH_TOKEN=${HF_TOKEN}
+    - DIARIZER_QUEUE__REDIS_URL=redis://diarizer-redis:6379/0
+    - DIARIZER_MODEL__AUTH_TOKEN=${HF_TOKEN:?HF_TOKEN must be set}
+    - DIARIZER_AUDIO__SPOOL_DIR=${SPOOL_DIR}
   depends_on:
     - diarizer-redis
 
+x-whisper: &whisper
+  environment:
+    - ASR_ENGINE=${ASR_ENGINE:?ASR_ENGINE must be set}
+    - ASR_MODEL=${ASR_MODEL:?ASR_MODEL must be set}
+    - ASR_MODEL_PATH=${ASR_MODEL_PATH:?ASR_MODEL_PATH must be set}
+  volumes:
+    - whisper-models:${ASR_MODEL_PATH}
+  healthcheck:
+    test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:${WHISPER_PORT}/docs')
+    interval: 30s
+    timeout: 5s
+    retries: 20
+    start_period: 300s
+
+x-transcriber: &transcriber
+  build:
+    context: .
+    dockerfile: transcriber/Dockerfile
+  volumes:
+    - ./config.yaml:/app/config.yaml:ro
+    - ./prompts.yaml:/app/prompts.yaml:ro
+    - transcriber-spool:${SPOOL_DIR}
+  environment:
+    - TRANSCRIBER_QUEUE__REDIS_URL=redis://transcriber-redis:6379/0
+    - TRANSCRIBER_AUDIO__SPOOL_DIR=${SPOOL_DIR}
+    - TRANSCRIBER_WHISPER__URL=http://whisper-asr:${WHISPER_PORT:?WHISPER_PORT must be set}
+    - TRANSCRIBER_DIARIZER__URL=http://diarizer-api:${DIARIZER_PORT:?DIARIZER_PORT must be set}
+    - TRANSCRIBER_LLM__API_KEY=${LLM_API_KEY}
+  depends_on:
+    - transcriber-redis
+
 services:
   diarizer-redis:
-    image: redis:7-alpine
+    image: ${REDIS_IMAGE:?REDIS_IMAGE must be set}
     volumes:
       - diarizer-redis:/data
 
   diarizer-api:
-    build: ./diarizer
-    command: uvicorn src.api.app:app --host 0.0.0.0 --port ${DIARIZER_PORT:-8001}
-    ports:
-      - "${DIARIZER_PORT:-8001}:${DIARIZER_PORT:-8001}"
+    build: *diarizer-build
+    command: uvicorn api.app:app --host 0.0.0.0 --port ${DIARIZER_PORT}
+    expose:
+      - "${DIARIZER_PORT}"
     volumes:
-      - ./diarizer.yaml:/app/config.yaml:ro
-      - diarizer-spool:/data/spool
+      - ./config.yaml:/app/config.yaml:ro
+      - diarizer-spool:${SPOOL_DIR}
     environment:
+      - DIARIZER_QUEUE__REDIS_URL=redis://diarizer-redis:6379/0
       - DIARIZER_MODEL__AUTH_TOKEN=${HF_TOKEN}
+      - DIARIZER_AUDIO__SPOOL_DIR=${SPOOL_DIR}
     depends_on:
       - diarizer-redis
 
   diarizer-worker:
-    <<: *worker
+    <<: *diarizer-worker
     profiles: ["cpu"]
     build:
-      context: ./diarizer
+      <<: *diarizer-build
       args:
         TORCH_EXTRA: cpu
 
   diarizer-worker-gpu:
-    <<: *worker
+    <<: *diarizer-worker
     profiles: ["gpu"]
     build:
-      context: ./diarizer
+      <<: *diarizer-build
       args:
         TORCH_EXTRA: gpu
     environment:
+      - DIARIZER_QUEUE__REDIS_URL=redis://diarizer-redis:6379/0
       - DIARIZER_MODEL__AUTH_TOKEN=${HF_TOKEN}
+      - DIARIZER_AUDIO__SPOOL_DIR=${SPOOL_DIR}
       - DIARIZER_INFERENCE__DEVICE=cuda
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: all
               capabilities: ["gpu"]
+
+  whisper-asr-cpu:
+    <<: *whisper
+    profiles: ["cpu"]
+    image: ${WHISPER_IMAGE:?WHISPER_IMAGE must be set}
+    networks:
+      default:
+        aliases: ["whisper-asr"]
+
+  whisper-asr-gpu:
+    <<: *whisper
+    profiles: ["gpu"]
+    image: ${WHISPER_IMAGE_GPU:?WHISPER_IMAGE_GPU must be set}
+    networks:
+      default:
+        aliases: ["whisper-asr"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+
+  transcriber-redis:
+    image: ${REDIS_IMAGE}
+    volumes:
+      - transcriber-redis:/data
+
+  transcriber-api:
+    <<: *transcriber
+    command: uvicorn api.app:app --host 0.0.0.0 --port ${TRANSCRIBER_PORT:?TRANSCRIBER_PORT must be set}
+    ports:
+      - "${TRANSCRIBER_PORT}:${TRANSCRIBER_PORT}"
+
+  transcriber-worker:
+    <<: *transcriber
+    command: arq worker.tasks.WorkerSettings
 
 volumes:
   diarizer-spool:
   diarizer-redis:
   diarizer-models:
+  transcriber-spool:
+  transcriber-redis:
+  whisper-models:

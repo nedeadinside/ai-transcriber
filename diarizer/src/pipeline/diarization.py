@@ -1,28 +1,47 @@
 import logging
-from typing import TYPE_CHECKING, Final, TypedDict
+from typing import TYPE_CHECKING, Final
+
+from core.api.schemas import SpeakerSegment
+from core.errors import AudioError
 
 if TYPE_CHECKING:
     from pyannote.audio import Pipeline
     from pyannote.core import Annotation
+    from torch import Tensor
 
     from config.models import AppConfig
 
 logger = logging.getLogger(__name__)
 
 _TIMESTAMP_NDIGITS: Final[int] = 3
+_SAMPLE_RATE: Final[int] = 16000
 
 
-class SegmentDict(TypedDict):
+def load_waveform(path: str) -> "Tensor":
     """
-    A single speech segment for one speaker.
+    Decode an audio file into the mono waveform pyannote expects.
+
+    :param path: Path to the audio file.
+    :raises AudioError: If the file holds no decodable audio.
+    :return: Waveform of shape (channel, time) at _SAMPLE_RATE.
     """
+    import av  # noqa: PLC0415
+    import numpy as np  # noqa: PLC0415
+    import torch  # noqa: PLC0415
 
-    start: float
-    end: float
-    speaker: str
+    resampler = av.AudioResampler(format="flt", layout="mono", rate=_SAMPLE_RATE)
+    chunks: list[np.ndarray] = []
+    with av.open(path) as container:
+        for frame in container.decode(audio=0):
+            chunks += [out.to_ndarray() for out in resampler.resample(frame)]
+        chunks += [out.to_ndarray() for out in resampler.resample(None)]
+
+    if not chunks:
+        raise AudioError("no decodable audio stream")
+    return torch.from_numpy(np.concatenate(chunks, axis=1))
 
 
-def to_segments(annotation: "Annotation") -> list[SegmentDict]:
+def to_segments(annotation: "Annotation") -> list[SpeakerSegment]:
     """
     Convert a diarization result into a list of segments.
 
@@ -30,11 +49,11 @@ def to_segments(annotation: "Annotation") -> list[SegmentDict]:
     :return: List of segments with start, end, and speaker fields.
     """
     return [
-        {
-            "start": round(segment.start, _TIMESTAMP_NDIGITS),
-            "end": round(segment.end, _TIMESTAMP_NDIGITS),
-            "speaker": speaker,
-        }
+        SpeakerSegment(
+            start=round(segment.start, _TIMESTAMP_NDIGITS),
+            end=round(segment.end, _TIMESTAMP_NDIGITS),
+            speaker=speaker,
+        )
         for segment, _, speaker in annotation.itertracks(yield_label=True)
     ]
 
@@ -64,7 +83,7 @@ class DiarizationPipeline:
 
         self.pipeline = Pipeline.from_pretrained(
             self.cfg.model.checkpoint,
-            use_auth_token=self.cfg.model.auth_token,
+            token=self.cfg.model.auth_token,
         )
         self.pipeline.to(self.device)
         logger.info("pyannote pipeline loaded on device: %s", self.device)
@@ -72,15 +91,17 @@ class DiarizationPipeline:
     def run(
         self,
         path: str,
-    ) -> list[SegmentDict]:
+    ) -> list[SpeakerSegment]:
         """
         Run diarization on an audio file and return its segments.
 
         :param path: Path to the audio file.
         :raises RuntimeError: If called before load().
+        :raises AudioError: If the file holds no decodable audio.
         :return: List of segments with start, end, and speaker fields.
         """
         if self.pipeline is None:
             raise RuntimeError("DiarizationPipeline.load() must be called before run()")
-        annotation = self.pipeline(path)
-        return to_segments(annotation)
+        audio = {"waveform": load_waveform(path), "sample_rate": _SAMPLE_RATE}
+        output = self.pipeline(audio)
+        return to_segments(output.exclusive_speaker_diarization)

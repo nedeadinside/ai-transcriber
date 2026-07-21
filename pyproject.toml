@@ -1,0 +1,23 @@
+[tool.uv.workspace]
+members = ["core", "diarizer", "transcriber"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-gpu"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+core = { workspace = true }
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-gpu", extra = "gpu" },
+]
+torchaudio = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-gpu", extra = "gpu" },
+]
