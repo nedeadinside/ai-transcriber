@@ -23,6 +23,16 @@ Submit, poll, cancel.
 - `GET  /v1/jobs/{id}` - status and result
 - `POST /v1/jobs/{id}/cancel`
 
+## MCP
+
+`mcp-server` exposes transcription to AI agents over Streamable HTTP at
+`http://localhost:8002/mcp`. One tool:
+
+- `transcribe(path, raw, diarized, summary)` - `path` is a file in the shared pool, absolute or relative to its root; returns the requested artifacts once the job finishes.
+
+The pool is `POOL_DIR` from `.env`, mounted read-only at the same path. Mount the directory the
+agent's uploads land in there, so the paths it reports resolve inside the MCP container.
+
 ## Config
 
 - `config.yaml` - runtime settings (models, limits, LLM provider, logging)
