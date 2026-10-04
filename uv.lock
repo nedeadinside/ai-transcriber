@@ -32,7 +32,6 @@ conflicts = [[
 
 [manifest]
 members = [
-    "core",
     "diarizer",
     "transcriber",
 ]
@@ -332,29 +331,6 @@ wheels = [
 ]
 
 [[package]]
-name = "core"
-version = "0.1.0"
-source = { editable = "core" }
-dependencies = [
-    { name = "arq" },
-    { name = "av" },
-    { name = "fastapi" },
-    { name = "pydantic" },
-    { name = "pydantic-settings", extra = ["yaml"] },
-    { name = "python-multipart" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "arq", specifier = ">=0.26,<0.27" },
-    { name = "av", specifier = ">=15.0,<19.0" },
-    { name = "fastapi", specifier = ">=0.115,<0.116" },
-    { name = "pydantic", specifier = ">=2.9,<3.0" },
-    { name = "pydantic-settings", extras = ["yaml"], specifier = ">=2.10,<3.0" },
-    { name = "python-multipart", specifier = ">=0.0.12" },
-]
-
-[[package]]
 name = "cycler"
 version = "0.12.1"
 source = { registry = "https://pypi.org/simple" }
@@ -369,7 +345,7 @@ version = "0.1.0"
 source = { virtual = "diarizer" }
 dependencies = [
     { name = "arq" },
-    { name = "core" },
+    { name = "av" },
     { name = "fastapi" },
     { name = "pyannote-audio" },
     { name = "pydantic" },
@@ -395,7 +371,7 @@ gpu = [
 [package.metadata]
 requires-dist = [
     { name = "arq", specifier = ">=0.26,<0.27" },
-    { name = "core", editable = "core" },
+    { name = "av", specifier = ">=15.0,<19.0" },
     { name = "fastapi", specifier = ">=0.115,<0.116" },
     { name = "pyannote-audio", specifier = ">=4.0,<5.0" },
     { name = "pydantic", specifier = ">=2.9,<3.0" },
@@ -2901,7 +2877,7 @@ version = "0.1.0"
 source = { virtual = "transcriber" }
 dependencies = [
     { name = "arq" },
-    { name = "core" },
+    { name = "av" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "langchain" },
@@ -2917,7 +2893,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "arq", specifier = ">=0.26,<0.27" },
-    { name = "core", editable = "core" },
+    { name = "av", specifier = ">=15.0,<19.0" },
     { name = "fastapi", specifier = ">=0.115,<0.116" },
     { name = "httpx", specifier = ">=0.27,<0.29" },
     { name = "langchain", specifier = ">=1.0,<2.0" },

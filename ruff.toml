@@ -1,6 +1,6 @@
 target-version = "py312"
 line-length = 100
-src = ["core/src", "diarizer/src", "transcriber/src"]
+src = [".", "diarizer/src", "transcriber/src"]
 
 [format]
 quote-style = "double"

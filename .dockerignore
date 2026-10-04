@@ -2,8 +2,7 @@
 !pyproject.toml
 !uv.lock
 !.python-version
-!core/pyproject.toml
-!core/src
+!core
 !diarizer/pyproject.toml
 !diarizer/src
 !transcriber/pyproject.toml
