@@ -38,9 +38,9 @@ class LoggingConfig(BaseModel):
     level: LogLevel
 
 
-class BaseAppConfig(BaseSettings):
+class YamlSettings(BaseSettings):
     """
-    Root settings shared by every service, combining yaml and environment variables.
+    Settings read from the shared yaml file, with environment variables taking precedence.
 
     Each service subclasses this and sets its own yaml_config_section and env_prefix;
     pydantic merges that model_config over this one, so the rest carries over.
@@ -52,10 +52,6 @@ class BaseAppConfig(BaseSettings):
         extra="ignore",
         protected_namespaces=(),
     )
-
-    queue: QueueConfig
-    audio: AudioConfig
-    logging: LoggingConfig
 
     @classmethod
     def settings_customise_sources(
@@ -78,3 +74,13 @@ class BaseAppConfig(BaseSettings):
             YamlConfigSettingsSource(settings_cls),
             file_secret_settings,
         )
+
+
+class BaseAppConfig(YamlSettings):
+    """
+    Root settings shared by every queue-backed service.
+    """
+
+    queue: QueueConfig
+    audio: AudioConfig
+    logging: LoggingConfig
