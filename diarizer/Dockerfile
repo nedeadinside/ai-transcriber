@@ -10,13 +10,11 @@ WORKDIR /app
 
 ARG TORCH_EXTRA=cpu
 COPY pyproject.toml uv.lock .python-version ./
-COPY core/pyproject.toml core/
 COPY diarizer/pyproject.toml diarizer/
-RUN uv sync --frozen --no-install-workspace --package diarizer --extra ${TORCH_EXTRA}
+RUN uv sync --frozen --package diarizer --extra ${TORCH_EXTRA}
 
 COPY core ./core
 COPY diarizer/src ./diarizer/src
-RUN uv sync --frozen --package diarizer --extra ${TORCH_EXTRA}
 
-ENV PYTHONPATH=/app/diarizer/src
+ENV PYTHONPATH=/app/diarizer/src:/app
 ENV PATH=/app/.venv/bin:$PATH
