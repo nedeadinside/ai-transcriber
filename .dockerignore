@@ -7,3 +7,5 @@
 !diarizer/src
 !transcriber/pyproject.toml
 !transcriber/src
+!mcp-server/pyproject.toml
+!mcp-server/src

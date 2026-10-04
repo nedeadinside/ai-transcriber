@@ -137,6 +137,22 @@ services:
     <<: *transcriber
     command: arq worker.tasks.WorkerSettings
 
+  mcp-server:
+    build:
+      context: .
+      dockerfile: mcp-server/Dockerfile
+    command: uvicorn app:app --host 0.0.0.0 --port ${MCP_PORT}
+    ports:
+      - "${MCP_PORT}:${MCP_PORT}"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ${POOL_DIR:?POOL_DIR must be set}:${POOL_DIR}:ro
+    environment:
+      - MCP_POOL__DIR=${POOL_DIR}
+      - MCP_TRANSCRIBER__URL=http://transcriber-api:${TRANSCRIBER_PORT}
+    depends_on:
+      - transcriber-api
+
 volumes:
   diarizer-spool:
   diarizer-redis:
