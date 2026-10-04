@@ -1,5 +1,5 @@
 [tool.uv.workspace]
-members = ["diarizer", "transcriber"]
+members = ["diarizer", "transcriber", "mcp-server"]
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

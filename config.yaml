@@ -48,3 +48,11 @@ transcriber:
 
   logging:
     level: INFO
+
+mcp:
+  transcriber:
+    poll_interval_sec: 5
+    timeout_sec: 600
+
+  logging:
+    level: INFO
