@@ -6,7 +6,7 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
-from core.enums import AudioFormat, LogLevel
+from core.enums import LogLevel, MediaFormat
 
 
 class QueueConfig(BaseModel):
@@ -25,7 +25,7 @@ class AudioConfig(BaseModel):
     """
 
     spool_dir: str
-    allowed_formats: list[AudioFormat]
+    allowed_formats: list[MediaFormat]
     max_duration_sec: int
     max_upload_mb: int
 

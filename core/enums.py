@@ -13,9 +13,9 @@ class LogLevel(StrEnum):
     CRITICAL = "CRITICAL"
 
 
-class AudioFormat(StrEnum):
+class MediaFormat(StrEnum):
     """
-    Audio container/extension accepted for upload.
+    Audio or video container/extension accepted for upload.
     """
 
     WAV = "wav"
@@ -23,6 +23,29 @@ class AudioFormat(StrEnum):
     M4A = "m4a"
     FLAC = "flac"
     OGG = "ogg"
+    OGA = "oga"
+    OPUS = "opus"
+    AAC = "aac"
+    WMA = "wma"
+    AMR = "amr"
+    AIFF = "aiff"
+    AIF = "aif"
+    MKA = "mka"
+    CAF = "caf"
+
+    MP4 = "mp4"
+    M4V = "m4v"
+    MOV = "mov"
+    MKV = "mkv"
+    WEBM = "webm"
+    AVI = "avi"
+    WMV = "wmv"
+    FLV = "flv"
+    MPG = "mpg"
+    MPEG = "mpeg"
+    TS = "ts"
+    MTS = "mts"
+    THREE_GP = "3gp"
 
 
 class JobState(StrEnum):

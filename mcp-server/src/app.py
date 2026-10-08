@@ -42,9 +42,9 @@ async def transcribe(
     summary: bool = False,
 ) -> dict[str, Any]:
     """
-    Transcribe an audio file from the shared pool and return the requested artifacts.
+    Transcribe an audio or video file from the shared pool and return the requested artifacts.
 
-    :param path: Path of the audio file in the pool, as the upload reported it.
+    :param path: Path of the audio or video file in the pool, as the upload reported it.
     :param ctx: Request context used to report progress.
     :param raw: Whether to return the plain transcript segments.
     :param diarized: Whether to return segments labelled by speaker.

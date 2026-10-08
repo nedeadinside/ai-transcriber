@@ -16,7 +16,7 @@ from config.models import AppConfig
 from core.api.schemas import JobCancelled, JobFailed, JobSucceeded
 from llm.factory import build_llm
 from llm.prompts import load_prompts
-from pipeline import transcription
+from pipeline import convert, transcription
 from worker.context import WorkerContext
 
 logger = logging.getLogger(__name__)
@@ -81,16 +81,18 @@ async def transcribe(
     webhooks: list[str],
 ) -> TranscribeResult:
     """
-    Transcribe an audio file, then notify the webhooks.
+    Convert an upload to FLAC, transcribe it, then notify the webhooks.
 
     :param ctx: ARQ worker context holding the service clients.
-    :param path: Path to the audio file in the spool volume.
+    :param path: Path to the uploaded audio or video file in the spool volume.
     :param artifacts: Artifacts to return.
     :param webhooks: URLs to POST the finished job to.
     :raises TranscriberError: If any step fails; ARQ turns it into a job failure.
     :return: The requested artifacts.
     """
     started_at = datetime.now(UTC)
+    source = Path(path)
+    audio = source.with_suffix(".norm.flac")
 
     def elapsed() -> float:
         """
@@ -101,7 +103,8 @@ async def transcribe(
         return round((datetime.now(UTC) - started_at).total_seconds(), 3)
 
     try:
-        result = await transcription.run(ctx, path, artifacts)
+        await convert.to_flac(source, audio)
+        result = await transcription.run(ctx, str(audio), artifacts)
     except asyncio.CancelledError:
         await notify(ctx, webhooks, JobCancelled(started_at=started_at, duration_sec=elapsed()))
         raise
@@ -116,7 +119,8 @@ async def transcribe(
         await notify(ctx, webhooks, body)
         return result
     finally:
-        await asyncio.to_thread(Path(path).unlink, missing_ok=True)
+        await asyncio.to_thread(source.unlink, missing_ok=True)
+        await asyncio.to_thread(audio.unlink, missing_ok=True)
 
 
 class WorkerSettings:
