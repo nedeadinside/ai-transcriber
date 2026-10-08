@@ -23,3 +23,9 @@ class LLMError(TranscriberError):
     """
     An LLM step could not run or returned unusable output.
     """
+
+
+class ConversionError(TranscriberError):
+    """
+    An upload could not be converted into the audio the pipeline consumes.
+    """

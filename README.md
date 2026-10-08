@@ -23,6 +23,15 @@ Submit, poll, cancel.
 - `GET  /v1/jobs/{id}` - status and result
 - `POST /v1/jobs/{id}/cancel`
 
+### Supported files
+
+Up to 4 GB and 4 hours. The worker first converts every upload to FLAC, 16 kHz, mono. A
+strategy is picked by the file extension (`transcriber/src/pipeline/convert.py`). A file with no
+audio track is rejected with `400`.
+
+- Audio: `wav`, `mp3`, `m4a`, `flac`, `ogg`, `oga`, `opus`, `aac`, `wma`, `amr`, `aiff`, `aif`, `mka`, `caf`
+- Video (the audio track is used): `mp4`, `m4v`, `mov`, `mkv`, `webm`, `avi`, `wmv`, `flv`, `mpg`, `mpeg`, `ts`, `mts`, `3gp`
+
 ## MCP
 
 `mcp-server` exposes transcription to AI agents over Streamable HTTP at

@@ -1,6 +1,6 @@
 diarizer:
   queue:
-    job_timeout: 3600
+    job_timeout: 14400
     concurrency: 1
 
   model:
@@ -11,25 +11,25 @@ diarizer:
 
   audio:
     allowed_formats: [wav, mp3, m4a, flac, ogg]
-    max_duration_sec: 7200
-    max_upload_mb: 200
+    max_duration_sec: 14400
+    max_upload_mb: 1024
 
   logging:
     level: INFO
 
 transcriber:
   queue:
-    job_timeout: 3600
+    job_timeout: 14400
     concurrency: 1
 
   whisper:
     language: null
     vad_filter: true
-    timeout_sec: 3600
+    timeout_sec: 14400
 
   diarizer:
     poll_interval_sec: 2
-    timeout_sec: 3600
+    timeout_sec: 14400
 
   llm:
     provider: openai # openai | ollama
@@ -42,9 +42,12 @@ transcriber:
       max_retries: 2
 
   audio:
-    allowed_formats: [wav, mp3, m4a, flac, ogg]
-    max_duration_sec: 7200
-    max_upload_mb: 200
+    allowed_formats: [
+        wav, mp3, m4a, flac, ogg, oga, opus, aac, wma, amr, aiff, aif, mka, caf,
+        mp4, m4v, mov, mkv, webm, avi, wmv, flv, mpg, mpeg, ts, mts, 3gp,
+      ]
+    max_duration_sec: 14400
+    max_upload_mb: 4096
 
   logging:
     level: INFO
@@ -52,7 +55,7 @@ transcriber:
 mcp:
   transcriber:
     poll_interval_sec: 5
-    timeout_sec: 600
+    timeout_sec: 1800
 
   logging:
     level: INFO

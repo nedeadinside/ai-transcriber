@@ -1,10 +1,11 @@
-from typing import Any
+from typing import Any, Self
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import SettingsConfigDict
 
 from core.config import BaseAppConfig
 from enums import LLMProvider
+from pipeline import convert
 
 
 class WhisperConfig(BaseModel):
@@ -54,3 +55,16 @@ class AppConfig(BaseAppConfig):
     whisper: WhisperConfig
     diarizer: DiarizerConfig
     llm: LLMConfig
+
+    @model_validator(mode="after")
+    def _check_converters(self) -> Self:
+        """
+        Refuse to start when an accepted format has no conversion strategy.
+
+        :raises ValueError: If an allowed format is missing from the converter registry.
+        :return: The validated settings.
+        """
+        missing = set(self.audio.allowed_formats) - convert.formats()
+        if missing:
+            raise ValueError(f"no converter for allowed formats: {', '.join(sorted(missing))}")
+        return self

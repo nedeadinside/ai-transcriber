@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Final
 
-from core.enums import AudioFormat
+from core.enums import MediaFormat
 from core.errors import AudioError, AudioTooLargeError
 
 if TYPE_CHECKING:
@@ -76,11 +76,11 @@ class AudioSpool:
     @staticmethod
     def _validate_duration(path: Path, max_duration_sec: int) -> None:
         """
-        Probe duration and enforce the configured limit.
+        Probe duration and the audio track, enforcing the configured limit.
 
         :param path: Path to the spooled file.
         :param max_duration_sec: Maximum allowed duration in seconds.
-        :raises AudioError: If the file is not readable audio.
+        :raises AudioError: If the file is not readable media or carries no audio track.
         :raises AudioTooLargeError: If the duration limit is exceeded.
         """
         import av  # noqa: PLC0415
@@ -88,6 +88,7 @@ class AudioSpool:
         try:
             with av.open(str(path)) as container:
                 raw_duration = container.duration
+                has_audio = bool(container.streams.audio)
         except av.FFmpegError:
             raw_duration = None
 
@@ -95,12 +96,16 @@ class AudioSpool:
             path.unlink(missing_ok=True)
             raise AudioError("unreadable audio file")
 
+        if not has_audio:
+            path.unlink(missing_ok=True)
+            raise AudioError("no audio track")
+
         if raw_duration / av.time_base > max_duration_sec:
             path.unlink(missing_ok=True)
             raise AudioTooLargeError(f"duration exceeds {max_duration_sec}s")
 
     @staticmethod
-    def _validate_extension(filename: str, allowed: list[AudioFormat]) -> AudioFormat:
+    def _validate_extension(filename: str, allowed: list[MediaFormat]) -> MediaFormat:
         """
         Validate the file extension and return it normalized.
 
@@ -111,7 +116,7 @@ class AudioSpool:
         """
         ext = Path(filename or "").suffix.lower().lstrip(".")
         try:
-            fmt = AudioFormat(ext)
+            fmt = MediaFormat(ext)
         except ValueError:
             fmt = None
         if fmt is None or fmt not in allowed:
